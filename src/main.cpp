@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include <Wire.h>
+#include <Wire.h>;
 #include <Preferences.h>
 #include <U8g2lib.h>
 
@@ -62,6 +62,7 @@ String pageHome() {
   <div class='section'>
      <div class='title'>Universal Remote</div>
      <a class='btn' href='/ac'>Toshiba AC Remote</a>
+     <a class='btn' href='/rgb'>RGB Strip Remote</a>
      <a class='btn' href='/learn'>Learn IR Button</a>
      <a class='btn' href='/learned'>My Learned Buttons</a>
   </div>
@@ -89,7 +90,55 @@ String pageAC() {
 
 void acSend(String msg) {
   showOLED(msg);
+  Serial.println(ac.toString());
   ac.send();
+}
+
+struct RGBButton {
+  const char* name;
+  uint32_t code;
+};
+
+RGBButton rgbButtons[] = {
+  {"ON",    0x00F7C03F},
+  {"OFF",   0x00F740BF},
+  {"R",     0x00F720DF},
+  {"G",     0x00F7A05F},
+  {"B",     0x00F7609F},
+  {"WHITE", 0x00F7E01F},
+  {"FLASH", 0x00F7D02F},
+  {"STROBE",0x00F7F00F},
+  {"FADE",  0x00F7C837},
+  {"SMOOTH",0x00F7E817},
+};
+
+void sendRGB(uint32_t code, String msg) {
+  showOLED(msg);
+  irsend.sendNEC(code, 32);
+}
+
+String pageRGB() {
+  return css + R"(
+  <div class='section'>
+    <div class='title'>RGB Strip Remote</div>
+
+    <a class='btn' href='/rgb_on'>ON</a>
+    <a class='btn-red btn' href='/rgb_off'>OFF</a>
+
+    <a class='btn-small btn' href='/rgb_r'>RED</a>
+    <a class='btn-small btn' href='/rgb_g'>GREEN</a>
+    <a class='btn-small btn' href='/rgb_b'>BLUE</a>
+
+    <a class='btn' href='/rgb_white'>WHITE</a>
+
+    <a class='btn' href='/rgb_flash'>FLASH</a>
+    <a class='btn' href='/rgb_strobe'>STROBE</a>
+    <a class='btn' href='/rgb_fade'>FADE</a>
+    <a class='btn' href='/rgb_smooth'>SMOOTH</a>
+
+    <a class='btn' style='background:#777' href='/'>Back</a>
+  </div>
+)";
 }
 
 String pageLearn() {
@@ -124,7 +173,6 @@ String pageLearned() {
       html += "<a class='btn-small btn' href='/send_learned?id=" + String(i) + "'>Send</a>";
       html += "<a class='btn-small btn-red btn' href='/delete_learned?id=" + String(i) + "'>Delete</a></p>";
     }
-
     prefs.end();
   }
 
@@ -226,6 +274,22 @@ void setupRoutes() {
   server.on("/ac_mode", [](){ ac.setMode(kToshibaAcCool); acSend("MODE COOL"); server.sendHeader("Location","/ac"); server.send(303); });
   server.on("/ac_fan", [](){ ac.setFan(kToshibaAcFanAuto); acSend("FAN"); server.sendHeader("Location","/ac"); server.send(303); });
   server.on("/ac_swing", [](){ ac.setSwing(true); acSend("SWING"); server.sendHeader("Location","/ac"); server.send(303); });
+
+  server.on("/rgb", [](){ server.send(200, "text/html", pageRGB()); });
+
+  server.on("/rgb_on", [](){ sendRGB(0x00F7C03F, "RGB ON"); server.sendHeader("Location","/rgb"); server.send(303); });
+  server.on("/rgb_off", [](){ sendRGB(0x00F740BF, "RGB OFF"); server.sendHeader("Location","/rgb"); server.send(303); });
+
+  server.on("/rgb_r", [](){ sendRGB(0x00F720DF, "RED"); server.sendHeader("Location","/rgb"); server.send(303); });
+  server.on("/rgb_g", [](){ sendRGB(0x00F7A05F, "GREEN"); server.sendHeader("Location","/rgb"); server.send(303); });
+  server.on("/rgb_b", [](){ sendRGB(0x00F7609F, "BLUE"); server.sendHeader("Location","/rgb"); server.send(303); });
+
+  server.on("/rgb_white", [](){ sendRGB(0x00F7E01F, "WHITE"); server.sendHeader("Location","/rgb"); server.send(303); });
+
+  server.on("/rgb_flash", [](){ sendRGB(0x00F7D02F, "FLASH"); server.sendHeader("Location","/rgb"); server.send(303); });
+  server.on("/rgb_strobe", [](){ sendRGB(0x00F7F00F, "STROBE"); server.sendHeader("Location","/rgb"); server.send(303); });
+  server.on("/rgb_fade", [](){ sendRGB(0x00F7C837, "FADE"); server.sendHeader("Location","/rgb"); server.send(303); });
+  server.on("/rgb_smooth", [](){ sendRGB(0x00F7E817, "SMOOTH"); server.sendHeader("Location","/rgb"); server.send(303); });
 
   server.on("/learn", [](){ server.send(200, "text/html", pageLearn()); });
   server.on("/start_learn", [](){ startLearning(); });
